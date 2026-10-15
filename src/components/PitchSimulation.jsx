@@ -40,10 +40,10 @@ export function TeamCrest({ code, size = 30, className = '' }) {
 }
 
 // ---------------------------------------------------------------------------
-// Authentic SportyBet pitch texture extracted directly from video
+// Authentic SportyBet pitch texture from park.png
 // ---------------------------------------------------------------------------
 const pitchImage = new Image();
-pitchImage.src = '/sporty_pitch_authentic.png';
+pitchImage.src = '/park.png';
 
 function drawProceduralPitch(ctx, W, H) {
   if (pitchImage.complete && pitchImage.naturalWidth > 0) {
@@ -925,15 +925,15 @@ export default function PitchSimulation() {
       <div
         className="relative w-full overflow-hidden transition-all duration-300 ease-in-out bg-[#1E5813]"
         style={{
-          maxHeight: pitchVisible ? '240px' : '0px',
+          maxHeight: pitchVisible ? '200px' : '0px',
         }}
       >
         <canvas
           ref={canvasRef}
-          width={576}
-          height={241}
+          width={413}
+          height={163}
           className="w-full block"
-          style={{ aspectRatio: '576 / 241' }}
+          style={{ aspectRatio: '413 / 163' }}
         />
 
         {/* Hide toggle pill */}
