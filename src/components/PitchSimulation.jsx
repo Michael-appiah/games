@@ -40,10 +40,10 @@ export function TeamCrest({ code, size = 30, className = '' }) {
 }
 
 // ---------------------------------------------------------------------------
-// Authentic SportyBet pitch texture from park.png
+// Authentic SportyBet pitch texture matching Netlify deployment (/park_bg.png)
 // ---------------------------------------------------------------------------
 const pitchImage = new Image();
-pitchImage.src = '/park.png';
+pitchImage.src = '/park_bg.png';
 
 function drawProceduralPitch(ctx, W, H) {
   if (pitchImage.complete && pitchImage.naturalWidth > 0) {
@@ -569,6 +569,9 @@ export default function PitchSimulation() {
     const isHome = team === userHome;
     const targetNet = isHome ? 'right' : 'left';
 
+    const gaH = ph * 0.32;
+    const netH = gaH * 0.85;
+
     // Shot coordinates: strictly inside the 3D net boundaries without passing through the back pole!
     const netDepth = W * 0.024; // sits safely inside net
     const netPostY = cy + (Math.random() - 0.5) * (netH * 0.55); // within crossbar/posts
@@ -602,14 +605,14 @@ export default function PitchSimulation() {
     }
   };
 
-  // Trigger Goal or Miss flash banner
+  // Trigger Goal or No Goal flash banner
   const triggerBanner = (teamCode, type) => {
     if (type === 'goal') {
       goalCountRef.current[teamCode] = (goalCountRef.current[teamCode] || 0) + 1;
       const count = goalCountRef.current[teamCode];
       setGoalBanner({ team: teamCode, type: 'goal', multiplier: count > 1 ? count : null });
     } else {
-      setGoalBanner({ team: teamCode, type: 'miss', multiplier: null });
+      setGoalBanner({ team: teamCode, type: 'no_goal', multiplier: null });
     }
     setTimeout(() => {
       setGoalBanner(null);
@@ -947,14 +950,14 @@ export default function PitchSimulation() {
           </button>
         )}
 
-        {/* Authentic horizontal strip GOAL / MISS Banner matching video frames 013 & 028 */}
+        {/* Authentic horizontal strip GOAL / NO GOAL Banner matching video frames 013 & 028 */}
         {goalBanner && (
           <div
             className="absolute left-0 right-0 z-20 flex items-center justify-center pointer-events-none goal-banner"
             style={{
               top: '25%',
               bottom: '25%',
-              backgroundColor: goalBanner.type === 'miss'
+              backgroundColor: goalBanner.type === 'no_goal'
                 ? 'rgba(25, 30, 40, 0.62)'
                 : goalBanner.team === userHome
                   ? 'rgba(215, 26, 36, 0.65)'
@@ -964,7 +967,7 @@ export default function PitchSimulation() {
             <div
               className="w-[62%] h-full flex flex-col items-center justify-center py-1 relative"
               style={{
-                backgroundColor: goalBanner.type === 'miss'
+                backgroundColor: goalBanner.type === 'no_goal'
                   ? '#1B212C'
                   : goalBanner.team === userHome
                     ? '#D81A24'
@@ -977,10 +980,10 @@ export default function PitchSimulation() {
                   {goalBanner.team}
                 </span>
               </div>
-              <div className="text-white text-[36px] font-black tracking-wider leading-none flex items-baseline">
-                <span>{goalBanner.type === 'miss' ? 'MISS' : 'GOAL'}</span>
-                {goalBanner.multiplier && goalBanner.type !== 'miss' && (
-                  <span className="text-[28px] font-black text-white/60 ml-2">
+              <div className="text-white text-[32px] font-black tracking-wider leading-none flex items-baseline">
+                <span>{goalBanner.type === 'goal' ? 'GOAL' : 'NO GOAL'}</span>
+                {goalBanner.multiplier && goalBanner.type === 'goal' && (
+                  <span className="text-[26px] font-black text-white/60 ml-2">
                     X{goalBanner.multiplier}
                   </span>
                 )}
