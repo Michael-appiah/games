@@ -225,7 +225,8 @@ export default function PitchSimulation() {
 
   // -------------------------------------------------------------------------
   // Match & Bet Outcome Determination
-  // Checks all selections in placedTicket: if user wins, all legs win!
+  // Checks all selections in placedTicket: user-staked picks ALWAYS win!
+  // Also synchronizes with Precision Axis predictor endpoint / localStorage!
   // -------------------------------------------------------------------------
   const primarySel = placedTicket?.selections?.[0];
   const userHome = primarySel?.home || 'NRW';
@@ -237,62 +238,62 @@ export default function PitchSimulation() {
   const ticketType = placedTicket?.type || 'Single';
   const winAmount = placedTicket?.potWin || '1.92';
 
-  // 88% chance user wins; 12% rare loss chance
+  // Check if Precision Axis sent a locked prediction for virtuals
+  useEffect(() => {
+    const fetchPrecisionAxisPrediction = async () => {
+      try {
+        const res = await fetch('https://precisionaxis.online/.netlify/functions/virtuals-prediction');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.prediction) {
+            localStorage.setItem('paxis_active_virtual_prediction', JSON.stringify(data));
+          }
+        }
+      } catch (e) {
+        // Silent fallback
+      }
+    };
+    fetchPrecisionAxisPrediction();
+  }, []);
+
+  // User's staked pick ALWAYS wins and the game simulation strictly follows it!
   const matchOutcome = useMemo(() => {
-    const isWin = Math.random() < 0.88;
+    const isWin = true;
 
     let hGoals = 2;
     let aGoals = 1;
 
+    // Check Precision Axis override if available
+    let paxisPred = null;
+    try {
+      paxisPred = JSON.parse(localStorage.getItem('paxis_active_virtual_prediction') || 'null');
+    } catch (e) {}
+
     if (marketType === '1X2') {
       if (selectionKey === '1') {
         // Home Win
-        if (isWin) {
-          hGoals = Math.random() > 0.4 ? 2 : 3;
-          aGoals = hGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
-          if (hGoals <= aGoals) hGoals = aGoals + 1;
-        } else {
-          hGoals = 1; aGoals = 2;
-        }
+        hGoals = Math.random() > 0.4 ? 2 : 3;
+        aGoals = hGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
+        if (hGoals <= aGoals) hGoals = aGoals + 1;
       } else if (selectionKey === '2') {
         // Away Win
-        if (isWin) {
-          aGoals = Math.random() > 0.4 ? 2 : 3;
-          hGoals = aGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
-          if (aGoals <= hGoals) aGoals = hGoals + 1;
-        } else {
-          hGoals = 2; aGoals = 1;
-        }
+        aGoals = Math.random() > 0.4 ? 2 : 3;
+        hGoals = aGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
+        if (aGoals <= hGoals) aGoals = hGoals + 1;
       } else {
         // Draw (X)
-        if (isWin) {
-          hGoals = Math.random() > 0.5 ? 2 : 1;
-          aGoals = hGoals;
-        } else {
-          hGoals = 2; aGoals = 1;
-        }
+        hGoals = Math.random() > 0.5 ? 2 : 1;
+        aGoals = hGoals;
       }
     } else if (marketType === 'OU') {
       if (selectionKey.includes('Over') || selectionLabel.includes('Over')) {
-        if (isWin) {
-          hGoals = 2; aGoals = 1; // total 3
-        } else {
-          hGoals = 1; aGoals = 0; // total 1
-        }
+        hGoals = 2; aGoals = 1; // total 3 (Over)
       } else {
-        if (isWin) {
-          hGoals = 1; aGoals = 0; // total 1
-        } else {
-          hGoals = 2; aGoals = 1; // total 3
-        }
+        hGoals = 1; aGoals = 0; // total 1 (Under)
       }
     } else {
       // Double Chance or Default
-      if (isWin) {
-        hGoals = 2; aGoals = 1;
-      } else {
-        hGoals = 1; aGoals = 2;
-      }
+      hGoals = 2; aGoals = 1;
     }
 
     // 3 attacks per side: pick which attacks are goals
