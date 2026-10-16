@@ -319,14 +319,51 @@ export default function PitchSimulation() {
     };
   }, [userHome, userAway, selectionKey, marketType]);
 
-  const isBetWon = matchOutcome.isWin;
+  // Calculate whether all selections in the placed ticket won
+  const isBetWon = useMemo(() => {
+    if (!matchOutcome.isWin) return false;
+    // For single bets, the primary match outcome determines the result
+    if (!placedTicket?.selections || placedTicket.selections.length <= 1) {
+      return matchOutcome.isWin;
+    }
+    // For multiple bets, check all selections across fixtures
+    return placedTicket.selections.every((sel, idx) => {
+      if (idx === 0) return matchOutcome.isWin;
+      const fixture = allEnglandFixtures.find(f => f.home === sel.home || f.away === sel.away);
+      if (!fixture) return true;
+      const h = fixture.finalHome;
+      const a = fixture.finalAway;
+      const m = sel.market || '1X2';
+      const s = sel.selection || '';
+      if (m === '1X2') {
+        if (s === '1') return h > a;
+        if (s === 'X') return h === a;
+        if (s === '2') return a > h;
+      }
+      if (m === 'OU') {
+        const total = h + a;
+        if (s.includes('Over 2.5') || s === 'Over 2.5') return total > 2;
+        if (s.includes('Under 2.5') || s === 'Under 2.5') return total < 3;
+        if (s.includes('Over 1.5') || s === 'Over 1.5') return total > 1;
+        if (s.includes('Under 1.5') || s === 'Under 1.5') return total < 2;
+        if (s.includes('Over')) return total > 2;
+        if (s.includes('Under')) return total < 3;
+      }
+      if (m === 'DC') {
+        if (s === '1X') return h >= a;
+        if (s === '12') return h !== a;
+        if (s === 'X2') return a >= h;
+      }
+      return true;
+    });
+  }, [matchOutcome, placedTicket, allEnglandFixtures]);
+
   const myFinalResult = {
     homeScore: matchOutcome.finalHome,
     awayScore: matchOutcome.finalAway,
   };
 
   // Other matches in this round (excluding the My Events match)
-  // If user placed a multiple bet with selections on other matches, guarantee those legs win too!
   const allEnglandFixtures = useMemo(() => {
     const defaultFixtures = [
       { home: 'NRW', away: 'NEW', finalHome: 3, finalAway: 2 },
@@ -340,26 +377,8 @@ export default function PitchSimulation() {
       { home: 'BHA', away: 'TOT', finalHome: 1, finalAway: 2 },
     ];
 
-    // Ensure all extra legs in placedTicket win when isBetWon is true
-    if (placedTicket?.selections && placedTicket.selections.length > 1) {
-      placedTicket.selections.slice(1).forEach(sel => {
-        const found = defaultFixtures.find(f => f.home === sel.home || f.away === sel.away);
-        if (found && isBetWon) {
-          if (sel.selection === '1' || sel.selectionLabel === 'Home') {
-            found.finalHome = 2; found.finalAway = 0;
-          } else if (sel.selection === '2' || sel.selectionLabel === 'Away') {
-            found.finalHome = 0; found.finalAway = 2;
-          } else if (sel.selection === 'X' || sel.selectionLabel === 'Draw') {
-            found.finalHome = 1; found.finalAway = 1;
-          } else if (sel.selection?.includes('Over') || sel.selectionLabel?.includes('Over')) {
-            found.finalHome = 2; found.finalAway = 1;
-          }
-        }
-      });
-    }
-
     return defaultFixtures;
-  }, [placedTicket, isBetWon]);
+  }, []);
 
   const otherMatchesInitial = useMemo(() => {
     return allEnglandFixtures.filter(
@@ -639,27 +658,31 @@ export default function PitchSimulation() {
       }))
     );
 
-    // Credit winnings to balance if bet won and save to localStorage
-    if (isBetWon && !winningsCreditedRef.current) {
-      winningsCreditedRef.current = true;
-      creditWinnings(winAmount);
-    }
-
     // Persist final score to context so ResultsView can read it
     setLastMatchScore({ home: myFinalResult.homeScore, away: myFinalResult.awayScore });
 
-    setShowResultOverlay(true);
+    // If the bet won: credit winnings and show celebration overlay
+    if (isBetWon) {
+      if (!winningsCreditedRef.current) {
+        winningsCreditedRef.current = true;
+        creditWinnings(winAmount);
+      }
+      setShowResultOverlay(true);
+    } else {
+      // If ANY game in the ticket was lost: do NOT show win overlay; proceed directly to Results page
+      setCurrentView('results');
+    }
   };
 
-  // Auto-move to results page after 3.2s of celebration
+  // Auto-move to results page after 3.2s of win celebration
   useEffect(() => {
-    if (showResultOverlay) {
+    if (showResultOverlay && isBetWon) {
       const timer = setTimeout(() => {
         setCurrentView('results');
       }, 3200);
       return () => clearTimeout(timer);
     }
-  }, [showResultOverlay, setCurrentView]);
+  }, [showResultOverlay, isBetWon, setCurrentView]);
 
   const handleSkip = () => {
     finishSimulation();
