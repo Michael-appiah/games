@@ -257,9 +257,9 @@ export default function PitchSimulation() {
   }, []);
 
   // User's staked pick ALWAYS wins and the game simulation strictly follows it!
+  // Also synchronizes with Precision Axis predictor endpoint / localStorage!
   const matchOutcome = useMemo(() => {
-    const isWin = true;
-
+    let isWin = true;
     let hGoals = 2;
     let aGoals = 1;
 
@@ -269,31 +269,40 @@ export default function PitchSimulation() {
       paxisPred = JSON.parse(localStorage.getItem('paxis_active_virtual_prediction') || 'null');
     } catch (e) {}
 
-    if (marketType === '1X2') {
-      if (selectionKey === '1') {
-        // Home Win
-        hGoals = Math.random() > 0.4 ? 2 : 3;
-        aGoals = hGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
-        if (hGoals <= aGoals) hGoals = aGoals + 1;
-      } else if (selectionKey === '2') {
-        // Away Win
-        aGoals = Math.random() > 0.4 ? 2 : 3;
-        hGoals = aGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
-        if (aGoals <= hGoals) aGoals = hGoals + 1;
-      } else {
-        // Draw (X)
-        hGoals = Math.random() > 0.5 ? 2 : 1;
-        aGoals = hGoals;
-      }
-    } else if (marketType === 'OU') {
-      if (selectionKey.includes('Over') || selectionLabel.includes('Over')) {
-        hGoals = 2; aGoals = 1; // total 3 (Over)
-      } else {
-        hGoals = 1; aGoals = 0; // total 1 (Under)
+    // If precision axis prediction matches current teams, apply predicted score directly
+    if (paxisPred && paxisPred.score) {
+      const parts = paxisPred.score.split('-').map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        hGoals = parts[0];
+        aGoals = parts[1];
       }
     } else {
-      // Double Chance or Default
-      hGoals = 2; aGoals = 1;
+      if (marketType === '1X2') {
+        if (selectionKey === '1') {
+          // Home Win
+          hGoals = Math.random() > 0.4 ? 2 : 3;
+          aGoals = hGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
+          if (hGoals <= aGoals) hGoals = aGoals + 1;
+        } else if (selectionKey === '2') {
+          // Away Win
+          aGoals = Math.random() > 0.4 ? 2 : 3;
+          hGoals = aGoals === 3 ? (Math.random() > 0.5 ? 1 : 0) : (Math.random() > 0.5 ? 1 : 0);
+          if (aGoals <= hGoals) aGoals = hGoals + 1;
+        } else {
+          // Draw (X)
+          hGoals = Math.random() > 0.5 ? 2 : 1;
+          aGoals = hGoals;
+        }
+      } else if (marketType === 'OU') {
+        if (selectionKey.includes('Over') || selectionLabel.includes('Over')) {
+          hGoals = 2; aGoals = 1; // total 3 (Over)
+        } else {
+          hGoals = 1; aGoals = 0; // total 1 (Under)
+        }
+      } else {
+        // Double Chance or Default
+        hGoals = 2; aGoals = 1;
+      }
     }
 
     // 3 attacks per side: pick which attacks are goals
@@ -376,6 +385,23 @@ export default function PitchSimulation() {
       { home: 'MCI', away: 'FUL', finalHome: 2, finalAway: 0 },
       { home: 'BHA', away: 'TOT', finalHome: 1, finalAway: 2 },
     ];
+
+    // If Precision Axis provided predicted winning teams, align the round's scores
+    try {
+      const paxisPred = JSON.parse(localStorage.getItem('paxis_active_virtual_prediction') || 'null');
+      if (paxisPred && paxisPred.predictedList && Array.isArray(paxisPred.predictedList)) {
+        paxisPred.predictedList.forEach(p => {
+          const match = defaultFixtures.find(f => f.home === p.home || f.away === p.away);
+          if (match && p.score) {
+            const parts = p.score.split('-').map(Number);
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              match.finalHome = parts[0];
+              match.finalAway = parts[1];
+            }
+          }
+        });
+      }
+    } catch (e) {}
 
     return defaultFixtures;
   }, []);
