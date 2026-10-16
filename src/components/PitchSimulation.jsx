@@ -245,7 +245,7 @@ export default function PitchSimulation() {
         const res = await fetch('https://precisionaxis.online/.netlify/functions/virtuals-prediction');
         if (res.ok) {
           const data = await res.json();
-          if (data && data.prediction) {
+          if (data && (data.prediction || data.predictedList)) {
             localStorage.setItem('paxis_active_virtual_prediction', JSON.stringify(data));
           }
         }
@@ -269,9 +269,20 @@ export default function PitchSimulation() {
       paxisPred = JSON.parse(localStorage.getItem('paxis_active_virtual_prediction') || 'null');
     } catch (e) {}
 
-    // If precision axis prediction matches current teams, apply predicted score directly
-    if (paxisPred && paxisPred.score) {
-      const parts = paxisPred.score.split('-').map(Number);
+    // Find match in predictedList if available
+    let targetPred = null;
+    if (paxisPred) {
+      if (paxisPred.predictedList && Array.isArray(paxisPred.predictedList)) {
+        targetPred = paxisPred.predictedList.find(p => (p.home === userHome && p.away === userAway) || p.home === userHome || p.away === userAway);
+      }
+      if (!targetPred) {
+        targetPred = paxisPred;
+      }
+    }
+
+    // If precision axis prediction has score, apply predicted score directly
+    if (targetPred && targetPred.score) {
+      const parts = targetPred.score.split('-').map(Number);
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
         hGoals = parts[0];
         aGoals = parts[1];
